@@ -131,6 +131,6 @@
     @apply font-heading;
     }
   p {
-    @apply text-foreground
+    @apply text-foreground;
   }
 }

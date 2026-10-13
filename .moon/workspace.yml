@@ -1,8 +1,19 @@
 $schema: 'https://moonrepo.dev/schemas/workspace.json'
 
+# moon compares changes against `master` unless told otherwise. This repository's
+# default branch is main, so without this `moon ci` dies on its very first step
+# with `fatal: ambiguous argument 'master'` — which is the entire reason CI has
+# never passed, on any OS, since the beginning.
+vcs:
+  defaultBranch: 'main'
+
 projects:
   globs:
     - 'apps/*'
     - 'crates/*'
   sources:
     root: '.'
+
+# The root project owns the repo-wide tooling (`lint`, `format`), so an
+# unscoped `moon run lint` has to land there instead of erroring.
+defaultProject: 'root'

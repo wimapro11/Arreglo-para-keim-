@@ -1,45 +1,57 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
-import { TanStackDevtools } from '@tanstack/react-devtools'
-import { TooltipProvider } from '../components/ui/tooltip'
+import { TanStackDevtools } from "@tanstack/react-devtools"
+import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router"
+import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
+import { ThemeProvider } from "next-themes"
+import type { ReactNode } from "react"
 
-import appCss from '../styles.css?url'
+import { TooltipProvider } from "../components/ui/tooltip"
+
+import appCss from "../styles.css?url"
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       {
-        charSet: 'utf-8',
+        charSet: "utf-8",
       },
       {
-        name: 'viewport',
-        content: 'width=device-width, initial-scale=1',
+        name: "viewport",
+        content: "width=device-width, initial-scale=1",
       },
       {
-        title: 'OpenCut rewrite | beta.opencut.app',
+        title: "OpenCut",
+      },
+      {
+        name: "description",
+        content:
+          "A free and open source video editor for web, desktop, and mobile.",
       },
     ],
     links: [
       {
-        rel: 'icon',
-        href: '/favicon.ico',
-        type: 'image/x-icon',
+        rel: "icon",
+        href: "/favicon.ico",
+        type: "image/x-icon",
       },
       {
-        rel: 'preconnect',
-        href: 'https://fonts.googleapis.com',
+        rel: "manifest",
+        href: "/manifest.json",
       },
       {
-        rel: 'preconnect',
-        href: 'https://fonts.gstatic.com',
-        crossOrigin: 'anonymous',
+        rel: "preconnect",
+        href: "https://fonts.googleapis.com",
       },
       {
-        rel: 'stylesheet',
-        href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400..900&display=swap',
+        rel: "preconnect",
+        href: "https://fonts.gstatic.com",
+        crossOrigin: "anonymous",
       },
       {
-        rel: 'stylesheet',
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400..900&display=swap",
+      },
+      {
+        rel: "stylesheet",
         href: appCss,
       },
     ],
@@ -47,23 +59,28 @@ export const Route = createRootRoute({
   shellComponent: RootDocument,
 })
 
-function RootDocument({ children }: { children: React.ReactNode }) {
+function RootDocument({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning={true}>
       <head>
         <HeadContent />
       </head>
       <body>
-        <TooltipProvider>
-          {children}
-        </TooltipProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          disableTransitionOnChange={true}
+          enableSystem={true}
+        >
+          <TooltipProvider>{children}</TooltipProvider>
+        </ThemeProvider>
         <TanStackDevtools
           config={{
-            position: 'bottom-right',
+            position: "bottom-right",
           }}
           plugins={[
             {
-              name: 'Tanstack Router',
+              name: "Tanstack Router",
               render: <TanStackRouterDevtoolsPanel />,
             },
           ]}

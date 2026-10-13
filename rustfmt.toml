@@ -1,0 +1,5 @@
+# rustfmt takes the edition from Cargo.toml (2024). These pin the rest so a
+# `cargo fmt` on any machine produces the same bytes as CI.
+newline_style = "Unix"
+use_field_init_shorthand = true
+use_try_shorthand = true

@@ -1,0 +1,17 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Not a crate yet: this project only carries the scripts that fetch and pin
+# the FFmpeg that `crates/media` will decode with.
+language: 'typescript'
+layer: 'tool'
+
+tasks:
+  setup:
+    command: 'bun run setup/setup.ts'
+    options:
+      runInCI: false  # downloads or builds FFmpeg: far too slow for CI
+
+  pin:
+    command: 'bun run setup/pin.ts'
+    options:
+      runInCI: false  # rewrites a pinned manifest: run by hand, then commit

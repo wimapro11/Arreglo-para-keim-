@@ -4,7 +4,9 @@ target/
 .env
 .env.*
 !.env.example
-docs/
 
 # moon runtime cache
 .moon/cache/
+
+# crates/media/setup fetches and builds FFmpeg here (hundreds of MB).
+.cache/

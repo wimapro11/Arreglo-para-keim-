@@ -1,0 +1,17 @@
+# Normalize line endings everywhere. Without this, a Windows checkout rewrites
+# every file to CRLF and `git status` reports the whole repo as modified.
+* text=auto eol=lf
+
+# Never normalize binary files.
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.woff binary
+*.woff2 binary
+*.zip binary
+*.gz binary
+*.tar binary
+*.xz binary

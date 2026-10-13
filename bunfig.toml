@@ -1,2 +1,11 @@
+# Bun only reads the `bunfig.toml` that sits next to the `package.json` it is
+# installing for, so this one covers the whole workspace now that the repo root
+# is the workspace root.
 [install]
-minimumReleaseAge = 604800 # 7d
+# Don't install a version published less than 7 days ago. Gives the ecosystem
+# time to spot a compromised release before it reaches this repo.
+minimumReleaseAge = 604800
+
+# The classic flat node_modules. Vite, the Cloudflare plugin, wrangler and the
+# Rust tooling all resolve the same way they did before this became a workspace.
+linker = "hoisted"

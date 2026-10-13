@@ -17,6 +17,14 @@ tasks:
       - '/Cargo.toml'
       - '/Cargo.lock'
 
+  # Formatting only, so unlike `check` it never compiles GPUI.
+  fmt:
+    command: 'cargo fmt --all -- --check'
+    inputs:
+      - 'src/**/*'
+      - 'Cargo.toml'
+      - '/rustfmt.toml'
+
   build:
     command: 'cargo build --release'
     inputs:
@@ -26,3 +34,5 @@ tasks:
       - '/Cargo.lock'
     outputs:
       - '/target/release/opencut-desktop'
+    options:
+      runInCI: false  # a release build implies `check`, and costs ~30 min per OS

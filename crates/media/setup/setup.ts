@@ -2,17 +2,24 @@
 // `.cache/media/`, where `build.rs` finds it. Safe to run again: a build
 // already in place is left alone.
 //
-//   moon run media:setup                    # the pinned prebuilt for this machine
-//   moon run media:setup -- --from-source   # build the pinned source here instead
+//   moon run media:setup                    # the pinned prebuilt, else a source build
+//   moon run media:setup -- --from-source   # force the source build
 //   bun run setup/setup.ts --target <platform>   # build for another platform
 //
 // The prebuilts are these same source builds, made for every platform by
-// .github/workflows/media-deps.yml and pinned in ffmpeg.json. Cross builds
+// .github/workflows/media-deps.yml and pinned into ffmpeg.json by
+// `bun run setup/pin.ts <tag>`. A platform with no pin in that file always
+// falls back to building the source, so keep the pins complete. Cross builds
 // need the target's toolchain on PATH: llvm-mingw for Windows (built from
 // Linux), Xcode for the other Mac architecture.
+//
+// Until our own release exists, ffmpeg.json points at BtbN's autobuilds for
+// the four Linux and Windows targets. Two things follow from that, and both
+// are why that file has no macOS entries: BtbN publishes no macOS builds at
+// all, so macOS can only ever be pinned from our own workflow, and BtbN prunes
+// old autobuild tags, so those four URLs will need re-pinning eventually.
 
-import { createHash } from "node:crypto";
-import { availableParallelism } from "node:os";
+import { createHash } from "node:crypto"
 import {
   copyFileSync,
   existsSync,
@@ -21,64 +28,90 @@ import {
   renameSync,
   rmSync,
   writeFileSync,
-} from "node:fs";
-import { join, resolve } from "node:path";
+} from "node:fs"
+import { availableParallelism } from "node:os"
+import { join, resolve } from "node:path"
 
-import manifest from "./ffmpeg.json";
+import manifest from "./ffmpeg.json"
 
-type Download = { url: string; sha256: string };
-type Platform = { os: "windows" | "macos" | "linux"; arch: "x86_64" | "aarch64" };
+type Download = { url: string; sha256: string }
+type Platform = {
+  os: "windows" | "macos" | "linux"
+  arch: "x86_64" | "aarch64"
+}
 
-const root = resolve(import.meta.dir, "../../..");
-const cache = join(root, ".cache", "media");
+const root = resolve(import.meta.dir, "../../..")
+const cache = join(root, ".cache", "media")
 
 function hostPlatform(): Platform {
-  const os = ({ win32: "windows", darwin: "macos", linux: "linux" } as const)[process.platform as string];
-  const arch = ({ x64: "x86_64", arm64: "aarch64" } as const)[process.arch as string];
-  if (!os || !arch) throw new Error(`unsupported platform ${process.platform}-${process.arch}`);
-  return { os, arch };
+  const os = ({ win32: "windows", darwin: "macos", linux: "linux" } as const)[
+    process.platform as string
+  ]
+  const arch = ({ x64: "x86_64", arm64: "aarch64" } as const)[
+    process.arch as string
+  ]
+  if (!os || !arch)
+    throw new Error(`unsupported platform ${process.platform}-${process.arch}`)
+  return { os, arch }
 }
 
 function parsePlatform(key: string): Platform {
-  const [os, arch] = key.split("-");
-  if (!["windows", "macos", "linux"].includes(os) || !["x86_64", "aarch64"].includes(arch)) {
-    throw new Error(`unknown platform ${key}: expected e.g. linux-x86_64`);
+  const [os, arch] = key.split("-")
+  if (
+    !["windows", "macos", "linux"].includes(os) ||
+    !["x86_64", "aarch64"].includes(arch)
+  ) {
+    throw new Error(`unknown platform ${key}: expected e.g. linux-x86_64`)
   }
-  return { os, arch } as Platform;
+  return { os, arch } as Platform
 }
 
-const keyOf = (platform: Platform) => `${platform.os}-${platform.arch}`;
+const keyOf = (platform: Platform) => `${platform.os}-${platform.arch}`
 
 function option(name: string): string | undefined {
-  const index = process.argv.indexOf(name);
-  return index === -1 ? undefined : process.argv[index + 1];
+  const index = process.argv.indexOf(name)
+  return index === -1 ? undefined : process.argv[index + 1]
 }
 
 async function download({ url, sha256 }: Download, to: string) {
-  console.log(`downloading ${url}`);
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`download failed: ${response.status} ${url}`);
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  const actual = createHash("sha256").update(bytes).digest("hex");
-  if (actual !== sha256) {
-    throw new Error(`checksum mismatch for ${url}\n  expected ${sha256}\n  got      ${actual}`);
+  console.log(`downloading ${url}`)
+  const response = await fetch(url)
+  if (!response.ok) {
+    const hint =
+      response.status === 404
+        ? "\n  The pinned prebuilt is gone. Re-pin it with `bun run setup/pin.ts <tag>`" +
+          "\n  or build from the pinned source with `--from-source`."
+        : ""
+    throw new Error(`download failed: ${response.status} ${url}${hint}`)
   }
-  await Bun.write(to, bytes);
+  const bytes = new Uint8Array(await response.arrayBuffer())
+  const actual = createHash("sha256").update(bytes).digest("hex")
+  if (actual !== sha256) {
+    throw new Error(
+      `checksum mismatch for ${url}\n  expected ${sha256}\n  got      ${actual}`,
+    )
+  }
+  await Bun.write(to, bytes)
 }
 
 function run(command: string[], cwd?: string) {
-  const result = Bun.spawnSync(command, { cwd, stdio: ["ignore", "inherit", "inherit"] });
-  if (result.exitCode !== 0) throw new Error(`failed: ${command.join(" ")}`);
+  const result = Bun.spawnSync(command, {
+    cwd,
+    stdio: ["ignore", "inherit", "inherit"],
+  })
+  if (result.exitCode !== 0) throw new Error(`failed: ${command.join(" ")}`)
 }
 
 function extract(archive: string, into: string) {
-  mkdirSync(into, { recursive: true });
+  mkdirSync(into, { recursive: true })
   // bsdtar (Windows 10+, macOS) and GNU tar (Linux) both detect the format.
   // On Windows, the system's own: a GNU tar from Git Bash may come first on
   // PATH, and it reads "C:" as a remote host.
   const tar =
-    process.platform === "win32" ? join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe") : "tar";
-  run([tar, "-xf", archive, "-C", into]);
+    process.platform === "win32"
+      ? join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe")
+      : "tar"
+  run([tar, "-xf", archive, "-C", into])
 }
 
 /// Configure flags for building FFmpeg for `target` on `host`. The same
@@ -95,14 +128,18 @@ function configureFlags(target: Platform, host: Platform): string[] {
     "--disable-avfilter",
     "--disable-network",
     "--disable-autodetect",
-  ];
-  const cross = target.os !== host.os || target.arch !== host.arch;
+  ]
+  const cross = target.os !== host.os || target.arch !== host.arch
 
   switch (target.os) {
     case "windows": {
-      if (host.os !== "linux") throw new Error("Windows builds are cross-compiled from Linux with llvm-mingw");
-      const prefix = `${target.arch}-w64-mingw32-`;
-      if (!Bun.which(`${prefix}clang`)) throw new Error(`${prefix}clang not on PATH: add llvm-mingw's bin/`);
+      if (host.os !== "linux")
+        throw new Error(
+          "Windows builds are cross-compiled from Linux with llvm-mingw",
+        )
+      const prefix = `${target.arch}-w64-mingw32-`
+      if (!Bun.which(`${prefix}clang`))
+        throw new Error(`${prefix}clang not on PATH: add llvm-mingw's bin/`)
       flags.push(
         "--target-os=mingw32",
         `--arch=${target.arch}`,
@@ -111,57 +148,88 @@ function configureFlags(target: Platform, host: Platform): string[] {
         // Windows' own threads, so the DLLs need nothing but the system.
         "--disable-pthreads",
         "--enable-w32threads",
-      );
-      break;
+      )
+      break
     }
     case "macos": {
-      if (host.os !== "macos") throw new Error("macOS builds need a Mac");
-      const arch = target.arch === "aarch64" ? "arm64" : "x86_64";
-      const machine = `-arch ${arch} -mmacosx-version-min=11.0`;
+      if (host.os !== "macos") throw new Error("macOS builds need a Mac")
+      const arch = target.arch === "aarch64" ? "arm64" : "x86_64"
+      const machine = `-arch ${arch} -mmacosx-version-min=11.0`
       // Found through the app's rpath: beside it in development, in the
       // bundle's Frameworks when shipped.
-      flags.push("--install-name-dir=@rpath", `--extra-cflags=${machine}`, `--extra-ldflags=${machine}`);
-      if (cross) flags.push("--enable-cross-compile", "--target-os=darwin", `--arch=${target.arch}`);
-      break;
+      flags.push(
+        "--install-name-dir=@rpath",
+        `--extra-cflags=${machine}`,
+        `--extra-ldflags=${machine}`,
+      )
+      if (cross)
+        flags.push(
+          "--enable-cross-compile",
+          "--target-os=darwin",
+          `--arch=${target.arch}`,
+        )
+      break
     }
     case "linux":
-      if (cross) throw new Error("Linux builds are made on a machine of the same architecture");
-      break;
+      if (cross)
+        throw new Error(
+          "Linux builds are made on a machine of the same architecture",
+        )
+      break
   }
 
   if (target.arch === "x86_64" && !Bun.which("nasm")) {
-    console.warn("nasm not found: building without x86 assembly, so decoding is slower");
-    flags.push("--disable-x86asm");
+    console.warn(
+      "nasm not found: building without x86 assembly, so decoding is slower",
+    )
+    flags.push("--disable-x86asm")
   }
-  return flags;
+  return flags
 }
 
 /// Builds the pinned source for `target` into `prefix`, with the licence
 /// and the exact recipe beside the libraries, as the LGPL asks of anyone
 /// who ships them.
-async function buildFromSource(staging: string, target: Platform, flags: string[]): Promise<string> {
-  const archive = join(staging, "source.tar.xz");
-  await download(manifest.source, archive);
-  extract(archive, staging);
-  const source = join(staging, readdirSync(staging).find((name) => name !== "source.tar.xz")!);
-  const prefix = join(staging, `ffmpeg-${manifest.version}-${keyOf(target)}`);
+async function buildFromSource(
+  staging: string,
+  target: Platform,
+  flags: string[],
+): Promise<string> {
+  const archive = join(staging, "source.tar.xz")
+  await download(manifest.source, archive)
+  extract(archive, staging)
+  const [unpacked] = readdirSync(staging).filter(
+    (name) => name !== "source.tar.xz",
+  )
+  if (!unpacked) {
+    throw new Error(`no unpacked source directory in ${staging}`)
+  }
+  const source = join(staging, unpacked)
+  const prefix = join(staging, `ffmpeg-${manifest.version}-${keyOf(target)}`)
 
-  console.log(`building FFmpeg ${manifest.version} for ${keyOf(target)}; this takes a few minutes`);
-  run(["./configure", `--prefix=${prefix}`, ...flags], source);
-  run(["make", `-j${availableParallelism()}`], source);
-  run(["make", "install"], source);
+  console.log(
+    `building FFmpeg ${manifest.version} for ${keyOf(target)}; this takes a few minutes`,
+  )
+  run(["./configure", `--prefix=${prefix}`, ...flags], source)
+  run(["make", `-j${availableParallelism()}`], source)
+  run(["make", "install"], source)
   // Example programs; nothing the libraries need.
-  rmSync(join(prefix, "share"), { recursive: true, force: true });
+  rmSync(join(prefix, "share"), { recursive: true, force: true })
 
   if (target.os === "windows") {
     // DLLs stay in bin/; the import libraries MSVC links against go in lib/.
-    for (const name of readdirSync(join(prefix, "bin")).filter((name) => name.endsWith(".lib"))) {
-      renameSync(join(prefix, "bin", name), join(prefix, "lib", name));
+    for (const name of readdirSync(join(prefix, "bin")).filter((name) =>
+      name.endsWith(".lib"),
+    )) {
+      renameSync(join(prefix, "bin", name), join(prefix, "lib", name))
     }
   }
 
-  copyFileSync(join(source, "COPYING.LGPLv2.1"), join(prefix, "COPYING.LGPLv2.1"));
-  copyFileSync(join(source, "LICENSE.md"), join(prefix, "LICENSE.md"));
+  copyFileSync(
+    join(source, "COPYING.LGPLv2.1"),
+    join(prefix, "COPYING.LGPLv2.1"),
+  )
+  copyFileSync(join(source, "LICENSE.md"), join(prefix, "LICENSE.md"))
   writeFileSync(
     join(prefix, "BUILD.md"),
     [
@@ -177,57 +245,81 @@ async function buildFromSource(staging: string, target: Platform, flags: string[
       "Licensed under the LGPL 2.1 or later: see COPYING.LGPLv2.1 and LICENSE.md.",
       "",
     ].join("\n"),
-  );
-  return prefix;
+  )
+  return prefix
 }
 
 /// Unpacks a prebuilt archive: one top-level folder with include/, lib/
 /// and, on Windows, bin/.
-async function installPrebuilt(prebuilt: Download, staging: string): Promise<string> {
-  const archive = join(staging, "archive");
-  await download(prebuilt, archive);
-  extract(archive, staging);
-  rmSync(archive);
-  return join(staging, readdirSync(staging)[0]);
+async function installPrebuilt(
+  prebuilt: Download,
+  staging: string,
+): Promise<string> {
+  const archive = join(staging, "archive")
+  await download(prebuilt, archive)
+  extract(archive, staging)
+  rmSync(archive)
+  return join(staging, readdirSync(staging)[0])
 }
 
+/// Either build the pinned source, or unpack the pinned prebuilt. Modelling it
+/// as a value lets the compiler carry the prebuilt through the whole run,
+/// rather than asserting it is there at each use.
+type Plan =
+  | { from: "source"; flags: string[] }
+  | { from: "prebuilt"; prebuilt: Download }
+
 async function main() {
-  const host = hostPlatform();
-  const target = option("--target") ? parsePlatform(option("--target")!) : host;
-  const key = keyOf(target);
-  const prebuilt = (manifest.platforms as Record<string, Download | undefined>)[key];
-  const fromSource = process.argv.includes("--from-source") || key !== keyOf(host) || !prebuilt;
+  const host = hostPlatform()
+  const requested = option("--target")
+  const target = requested ? parsePlatform(requested) : host
+  const key = keyOf(target)
+  const prebuilt = (manifest.platforms as Record<string, Download | undefined>)[
+    key
+  ]
+  const buildSource =
+    process.argv.includes("--from-source") || key !== keyOf(host) || !prebuilt
+
+  const plan: Plan =
+    !buildSource && prebuilt
+      ? { from: "prebuilt", prebuilt }
+      : { from: "source", flags: configureFlags(target, host) }
 
   // What this build is made of: a different pin or recipe rebuilds it.
-  const flags = fromSource ? configureFlags(target, host) : [];
-  const stamp = fromSource
-    ? `source ${manifest.source.sha256} ${createHash("sha256").update(flags.join(" ")).digest("hex")}`
-    : `prebuilt ${prebuilt!.sha256}`;
+  const stamp =
+    plan.from === "source"
+      ? `source ${manifest.source.sha256} ${createHash("sha256").update(plan.flags.join(" ")).digest("hex")}`
+      : `prebuilt ${plan.prebuilt.sha256}`
 
-  const destination = join(cache, `ffmpeg-${manifest.version}-${key}`);
-  const marker = join(destination, ".complete");
+  const destination = join(cache, `ffmpeg-${manifest.version}-${key}`)
+  const marker = join(destination, ".complete")
   if (existsSync(marker) && (await Bun.file(marker).text()).trim() === stamp) {
-    console.log(`FFmpeg ${manifest.version} for ${key} is ready in ${destination}`);
-    return;
+    console.log(
+      `FFmpeg ${manifest.version} for ${key} is ready in ${destination}`,
+    )
+    return
   }
 
   // Made beside the destination and moved in whole, so an interrupted run
   // never leaves a half-finished build that looks complete.
-  const staging = `${destination}.partial`;
-  rmSync(staging, { recursive: true, force: true });
-  mkdirSync(staging, { recursive: true });
-  const built = fromSource
-    ? await buildFromSource(staging, target, flags)
-    : await installPrebuilt(prebuilt!, staging);
+  const staging = `${destination}.partial`
+  rmSync(staging, { recursive: true, force: true })
+  mkdirSync(staging, { recursive: true })
+  const built =
+    plan.from === "source"
+      ? await buildFromSource(staging, target, plan.flags)
+      : await installPrebuilt(plan.prebuilt, staging)
 
-  rmSync(destination, { recursive: true, force: true });
-  renameSync(built, destination);
-  rmSync(staging, { recursive: true, force: true });
-  writeFileSync(marker, `${stamp}\n`);
-  console.log(`FFmpeg ${manifest.version} for ${key} is ready in ${destination}`);
+  rmSync(destination, { recursive: true, force: true })
+  renameSync(built, destination)
+  rmSync(staging, { recursive: true, force: true })
+  writeFileSync(marker, `${stamp}\n`)
+  console.log(
+    `FFmpeg ${manifest.version} for ${key} is ready in ${destination}`,
+  )
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
-});
+  console.error(error instanceof Error ? error.message : error)
+  process.exit(1)
+})

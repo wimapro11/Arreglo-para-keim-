@@ -1,6 +1,36 @@
 $schema: 'https://moonrepo.dev/schemas/project.json'
 
 tasks:
+  # The workspace root project owns the tooling that covers every app, so
+  # these run from the repo root rather than from one project.
+  lint:
+    command: 'bun run lint'
+    inputs:
+      - 'apps/**/*'
+      - 'biome.jsonc'
+      - 'package.json'
+
+  format:
+    command: 'bun run format'
+    options:
+      runInCI: false  # `biome format --write`: local only, never in CI
+
+  typecheck:
+    command: 'bun run typecheck'
+    inputs:
+      - 'scripts/**/*'
+      - 'crates/media/setup/**/*'
+      - 'tsconfig.json'
+      - 'package.json'
+
+  notices:
+    command: 'bun run notices'
+    inputs:
+      - 'scripts/third-party-notices.ts'
+      - 'crates/media/setup/ffmpeg.json'
+    options:
+      runInCI: false  # rewrites a committed file: run by hand, then commit
+
   upload-logos:
     script: |
       set -eu

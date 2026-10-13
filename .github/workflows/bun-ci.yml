@@ -4,34 +4,67 @@ concurrency:
   group: bun-ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Read-only by default: no job here needs to write to the repository.
+permissions:
+  contents: read
+
 on:
+  # So CI can be re-run without inventing a commit. A push whose only changed
+  # files are markdown is skipped by paths-ignore below, which is correct but
+  # leaves no way to ask for a run.
+  workflow_dispatch:
   push:
     branches: [main]
     paths-ignore:
-      - "*.md"
+      - "**/*.md"
   pull_request:
     branches: [main]
     paths-ignore:
-      - "*.md"
+      - "**/*.md"
 
 jobs:
   ci:
     runs-on: ${{ matrix.os }}
     strategy:
+      # A single OS failing used to cancel the other two, which hid whether the
+      # desktop built anywhere at all. Every OS now reports on its own.
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
       - name: Setup toolchain
-        uses: moonrepo/setup-toolchain@v0
+        uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0
         with:
           auto-install: true
           auto-setup: true
+
+      # GPUI renders through Vulkan on Linux and needs the windowing and font
+      # headers to compile at all. apps/desktop/README.md has always listed
+      # these as the developer requirement; the runner does not ship them.
+      - name: Install GPUI system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            pkg-config \
+            libvulkan-dev \
+            libwayland-dev \
+            libx11-xcb-dev \
+            libxkbcommon-x11-dev \
+            libfontconfig-dev
+
+      # `desktop:check` compiles GPUI from source. On a cold cache that is
+      # ~30 minutes per OS on every single pull request.
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
 
       - name: Run CI
         run: moon ci

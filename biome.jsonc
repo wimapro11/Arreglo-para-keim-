@@ -1,0 +1,116 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/.cache",
+      "!**/target",
+      "!**/routeTree.gen.ts",
+      "!brand"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 80,
+    "lineEnding": "lf"
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "jsxQuoteStyle": "double",
+      "semicolons": "asNeeded",
+      "trailingCommas": "all",
+      "arrowParentheses": "always",
+      "bracketSpacing": true
+    }
+  },
+  "json": {
+    "formatter": {
+      "enabled": true
+    },
+    "parser": {
+      "allowComments": true
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    },
+    "formatter": {
+      "enabled": false
+    },
+    "linter": {
+      "enabled": false
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended"
+    }
+  },
+  "overrides": [
+    {
+      // The chart builds its own <style> tag from a module-level THEMES table
+      // and the config prop. Nothing reaches it from user input, and the rule
+      // cannot see that, so it is turned off for this one file rather than
+      // globally.
+      "includes": ["apps/web/src/components/ui/chart.tsx"],
+      "linter": {
+        "rules": {
+          "security": {
+            "noDangerouslySetInnerHtml": "off"
+          }
+        }
+      }
+    },
+    {
+      // A slider's thumbs are positional by definition — there is one per
+      // value, in order — so the index is the correct key here. Scoped to this
+      // file rather than excused for the whole directory.
+      "includes": ["apps/web/src/components/ui/slider.tsx"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noArrayIndexKey": "off"
+          }
+        }
+      }
+    },
+    {
+      // Vendored shadcn primitives. They intentionally render non-semantic
+      // elements carrying ARIA roles, so these rules fire by design rather than
+      // by mistake. Downgraded to warnings inside this directory only: the rest
+      // of the codebase keeps them as errors, so new code cannot introduce them.
+      "includes": ["apps/web/src/components/ui/**"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useSemanticElements": "warn",
+            "useKeyWithClickEvents": "warn",
+            "noLabelWithoutControl": "warn",
+            "useFocusableInteractive": "warn"
+          }
+        }
+      }
+    }
+  ]
+}

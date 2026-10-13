@@ -15,10 +15,17 @@ tasks:
       - 'src/**/*'
       - 'wrangler.jsonc'
       - 'package.json'
-    outputs:
-      - 'dist'
+
+  typecheck:
+    command: 'bun run typecheck'
+    inputs:
+      - 'src/**/*'
+      - 'tsconfig.json'
+      - 'package.json'
 
   deploy:
     command: 'bun run deploy'
     deps:
       - '~:build'
+    options:
+      runInCI: false  # deploys to Cloudflare: needs credentials, not a CI check
