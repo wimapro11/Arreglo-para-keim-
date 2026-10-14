@@ -1,6 +1,6 @@
 # OpenCut, arreglado
 
-[![Bun CI](https://github.com/wimapro11/Arreglo-para-keim-/actions/workflows/bun-ci.yml/badge.svg)](https://github.com/wimapro11/Arreglo-para-keim-/actions/workflows/bun-ci.yml)
+[![Bun CI](https://github.com/wimapro11/Opencut-issue/actions/workflows/bun-ci.yml/badge.svg)](https://github.com/wimapro11/Opencut-issue/actions/workflows/bun-ci.yml)
 
 Copia del código fuente de OpenCut
 ([OpenCut-app/OpenCut](https://github.com/OpenCut-app/OpenCut)) tomada en el
@@ -10,7 +10,7 @@ el original. **No es un fork oficial ni está afiliada al proyecto.**
 | Commit | Contenido |
 | --- | --- |
 | `Import OpenCut at e668010` | El árbol de upstream, sin tocar |
-| `OpenCut, fixed` | Los 102 archivos de arreglos. [Ver el diff completo](https://github.com/wimapro11/Arreglo-para-keim-/compare/fd9ccfd4...5cadd48f) |
+| `OpenCut, fixed` | Los 102 archivos de arreglos. [Ver el diff completo](https://github.com/wimapro11/Opencut-issue/compare/fd9ccfd4...5cadd48f) |
 | `docs:` | Este documento |
 
 ---
